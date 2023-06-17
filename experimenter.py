@@ -109,23 +109,18 @@ class ModelManager:
 class DatasetItem:
     def __init__(self,dataset=None,file_path=None):
         
-        self.dataset = self._to_numerical(dataset)
+        self.dataset = dataset
         self.target = self.dataset.columns[-1]
         self.feature = self.dataset.columns[:-1]
         self.name = file_path
     def get_target(self):
         return self.dataset[self.target]
     def get_feature(self):
-        return self.dataset[self.feature]
-    def _to_numerical(self,dataset):
-        if dataset is None:
-            return None
-        # Get the list of string columns
-        string_columns = dataset.select_dtypes(include=['object']).columns.tolist()
-        label_encoder = LabelEncoder()
-        # Apply label encoding to string columns
-        dataset[string_columns] = dataset[string_columns].apply(lambda x: label_encoder.fit_transform(x.astype(str)))
-        return dataset
+        output = self.dataset[self.feature].copy()
+        string_columns = output.select_dtypes(include='object').columns
+        output = pd.get_dummies(output, columns=string_columns)
+        return output
+
 
 
 
