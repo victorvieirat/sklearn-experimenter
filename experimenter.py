@@ -5,7 +5,7 @@ from sklearn.base import BaseEstimator
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from tqdm import tqdm
-
+from sklearn.preprocessing import LabelEncoder
 
 import numpy as np
 import pandas as pd
@@ -108,7 +108,8 @@ class ModelManager:
 """
 class DatasetItem:
     def __init__(self,dataset=None,file_path=None):
-        self.dataset = dataset
+        
+        self.dataset = self._to_numerical(dataset)
         self.target = self.dataset.columns[-1]
         self.feature = self.dataset.columns[:-1]
         self.name = file_path
@@ -116,6 +117,18 @@ class DatasetItem:
         return self.dataset[self.target]
     def get_feature(self):
         return self.dataset[self.feature]
+    def _to_numerical(self,dataset):
+        if dataset is None:
+            return None
+        # Get the list of string columns
+        string_columns = dataset.select_dtypes(include=['object']).columns.tolist()
+        label_encoder = LabelEncoder()
+        # Apply label encoding to string columns
+        dataset[string_columns] = dataset[string_columns].apply(lambda x: label_encoder.fit_transform(x.astype(str)))
+        return dataset
+
+
+
 
 
 class DatasetManager:
