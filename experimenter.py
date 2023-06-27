@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import os
 import inspect
+                   
 
 
 estimators_dict = {item[0]: item[1] for item in all_estimators(type_filter='classifier')}
@@ -42,6 +43,8 @@ metrics_dict={
 
 def isList(value):
     return isinstance(value, list)
+def isTuple(value):
+    return isinstance(value, tuple)
 def isString(value):
     return isinstance(value, str)
 def isDataset(value):
@@ -67,6 +70,13 @@ def get_variable_name(var):
         if id(value) == id(var):
             return name
     return None
+
+def get_var_name(value):
+    frame = inspect.currentframe().f_back
+    code = frame.f_code
+    value_name = code.co_names[code.co_varnames.index('value')]
+    return value_name
+
 """
 =========================================
 ============= Model Manager =============
@@ -87,8 +97,7 @@ class ModelManager:
             except:
                 raise ValueError(f'An error occurred while attempting to retrieve the model. Look at {item}')
 
-        elif isModel(item):
-            
+        elif isModel(item):     
             self.models.append(item)
         else:
              raise ValueError(f'An error occurred while attempting to retrieve the model. Look at {item}')
@@ -107,12 +116,15 @@ class ModelManager:
 =========================================
 """
 class DatasetItem:
-    def __init__(self,dataset=None,file_path=None):
+    def __init__(self,dataset=None,name=None):
         
         self.dataset = dataset
+        self._columns_to_str()
         self.target = self.dataset.columns[-1]
         self.feature = self.dataset.columns[:-1]
-        self.name = file_path
+        self.name = name
+    def _columns_to_str(self):
+        self.dataset.columns = [str(col) for col in  self.dataset.columns]
     def get_target(self):
         return self.dataset[self.target]
     def get_feature(self):
@@ -120,11 +132,6 @@ class DatasetItem:
         string_columns = output.select_dtypes(include='object').columns
         output = pd.get_dummies(output, columns=string_columns)
         return output
-
-
-
-
-
 
 class DatasetManager:
     def __init__(self,datasets):
@@ -142,16 +149,19 @@ class DatasetManager:
                         self._process_dataset_item(file_path)
             else:
                 try:
+
                     self.datasets.append(DatasetItem(pd.read_csv(item),item))
                 except:
                     raise ValueError(f'An error occurred reading dataset. Look at {item}')
-
-        elif isDataset(item):
-            name = get_variable_name(item)
-            if name is None:
-                name = f'Dataset{self._count}'
-                self._count += 1
+        elif isDataset(item):  
+            name = f'Dataset{self._count}'
+            self._count += 1
             self.datasets.append(DatasetItem(item,name))
+        elif isTuple(item):
+            try:
+                self.datasets.append(DatasetItem(item[0],item[1]))
+            except:
+                raise ValueError(f'Something weng wrong with the input tuple, was expected a dataframe and a name. Look at {item}')
         else:
             raise ValueError(f'An error occurred reading dataset. Look at {item}')
         return
@@ -266,6 +276,7 @@ class ModelRunner:
         self.splits = SplitManager(splits)
         self.random = SeedManager(seeds)
         self.output = None
+        self.save_path = 'result.pkl'
     def summarize(self):
         print(f'Number of dataframes: {len(self.data.datasets)}')
         print(f'Metrics used: {self.metrics}')
@@ -289,7 +300,7 @@ class ModelRunner:
                 new_line_metrics.update(validate(model.predict(X_test),y_test,self.metrics))
                 self.results.append(new_line_metrics)
                 if self.save_each_evaluation:
-                    pd.DataFrame(self.results).to_pickle("result.pkl")
+                    pd.DataFrame(self.results).to_pickle(self.save_path)
         else:
             new_line['model_seed'] = np.nan
             model = model_item
@@ -299,7 +310,7 @@ class ModelRunner:
             new_line_metrics.update(validate(model.predict(X_test),y_test,self.metrics))
             self.results.append(new_line_metrics)
             if self.save_each_evaluation:
-                pd.DataFrame(self.results).to_pickle("result.pkl")
+                pd.DataFrame(self.results).to_pickle(self.save_path)
     def run(self,save_each_evaluation=True):
         self.save_each_evaluation = True
         # Run split
@@ -342,6 +353,7 @@ class ModelRunner:
                                     X_train, X_test = X.loc[train_index], X.loc[test_index]
                                     y_train, y_test = y.loc[train_index], y.loc[test_index]
                                     self._model_runner(model_item,new_line, X_train, X_test, y_train, y_test)
+                                    count+=1
         self.results = pd.DataFrame(self.results)
                                     
                                         
