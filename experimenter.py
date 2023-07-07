@@ -12,8 +12,6 @@ import pandas as pd
 import os
 import inspect
                    
-
-
 estimators_dict = {item[0]: item[1] for item in all_estimators(type_filter='classifier')}
 metrics_dict={
       "accuracy": [metrics.accuracy_score,{}]
@@ -70,12 +68,6 @@ def get_variable_name(var):
         if id(value) == id(var):
             return name
     return None
-
-def get_var_name(value):
-    frame = inspect.currentframe().f_back
-    code = frame.f_code
-    value_name = code.co_names[code.co_varnames.index('value')]
-    return value_name
 
 """
 =========================================
@@ -134,9 +126,10 @@ class DatasetItem:
         return output
 
 class DatasetManager:
-    def __init__(self,datasets):
+    def __init__(self,datasets,reader=pd.read_csv):
         self._count = 0
         self.datasets = []
+        self.reader=reader
         if datasets is not None:
             self.add_datasets(datasets)
     def _process_dataset_item(self,item):
@@ -150,7 +143,7 @@ class DatasetManager:
             else:
                 try:
 
-                    self.datasets.append(DatasetItem(pd.read_csv(item),item))
+                    self.datasets.append(DatasetItem(self.reader(item),item))
                 except:
                     raise ValueError(f'An error occurred reading dataset. Look at {item}')
         elif isDataset(item):  
